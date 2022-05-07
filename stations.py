@@ -1,14 +1,16 @@
 import random
+from typing import List
 
-stationsName = ['Rokossovskaya', 'Sobornaya', 'Crystal', 'Zarechnaya', 'Pushkin library']
-countOfStations = len(stationsName)
+STATIONS_NAME = ['Rokossovskaya', 'Sobornaya', 'Crystal', 'Zarechnaya', 'Pushkin library']
+countOfStations = len(STATIONS_NAME)
 limitOfPeopleOnStation = 2000
 maxPassengersInTrain = 400
 
 
 class Station:
-    def __init__(self):
-        self.people = []
+    def __init__(self, name: str):
+        self.name = name
+        self.people = []  # type: List[Passenger]
         self.is_train_to_go = False
         self.other_stations = None
 
@@ -20,7 +22,7 @@ class Station:
             for j in range(countOfStations):
                 self.stations[j].append(Passenger(j))
                 if len(self.stations[j]) >= 2000:
-                    exit(f'На станции {stationsName[j]} слишком много людей')
+                    exit(f'На станции {STATIONS_NAME[j]} слишком много людей')
 
     def init_other_stations(self, stations):
         self.other_stations = [s for s in stations if s is not self]

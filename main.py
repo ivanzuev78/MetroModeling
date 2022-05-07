@@ -1,14 +1,15 @@
 from asyncio import get_event_loop, gather
 
 from about_async import my_func_async, my_func_coroutine
-from stations import create_man, Passenger
+from stations import create_man, Passenger, Station, STATIONS_NAME
 
 
 async def modelling():
     # some init
-    stations = []
+    stations = [Station(name) for name in STATIONS_NAME]
     for station in stations:
         station.init_other_stations(stations)
+
     Passenger.all_stations = stations
     trains = []
     my_time = 0
@@ -20,8 +21,14 @@ async def modelling():
         add_people_tasks = []
         for station in stations:
             add_people_tasks.append(create_man(station))
+            print('asdf')
 
-        await gather(add_people_tasks)
+        await gather(*add_people_tasks)
+
+        for station in stations:
+            debug_list = list(filter(lambda man: man.station_to_go == station.name, station.people))
+            if debug_list:
+                print('!!!')
 
         # task_list = []
         # for station in stations:
