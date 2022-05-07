@@ -23,7 +23,6 @@ async def modelling():
 
         await gather(add_people_tasks)
 
-
         # task_list = []
         # for station in stations:
         #     if station.is_train_to_go:
@@ -36,10 +35,10 @@ async def modelling():
         #     static = save_statistics.send(data)
         #
 
+
 def main():
     loop = get_event_loop()
     loop.run_until_complete(modelling())
-
 
 
 if __name__ == '__main__':

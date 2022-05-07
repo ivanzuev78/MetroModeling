@@ -5,6 +5,7 @@ countOfStations = len(stationsName)
 limitOfPeopleOnStation = 2000
 maxPassengersInTrain = 400
 
+
 class Station:
     def __init__(self):
         self.people = []
@@ -13,14 +14,13 @@ class Station:
 
     async def start_train(self):
         print('поезд запущен')
-        
-        
+
     async def arrivalOfPassengers(self):
-		while True:
-			for j in range(countOfStations):
-				self.stations[j].append(Passenger(j))
-				if len(self.stations[j]) >= 2000:
-					exit(f'На станции {stationsName[j]} слишком много людей')
+        while True:
+            for j in range(countOfStations):
+                self.stations[j].append(Passenger(j))
+                if len(self.stations[j]) >= 2000:
+                    exit(f'На станции {stationsName[j]} слишком много людей')
 
     def init_other_stations(self, stations):
         self.other_stations = [s for s in stations if s is not self]
@@ -35,11 +35,11 @@ class Passenger:
 
 
 class Train:
-    	def __init__(self):
-		    self.station = 0
-		    self.passengers = []
-		    self.direction = 0 #0 - right; 1 - left
-		    self.waiting = False
+    def __init__(self):
+        self.station = 0
+        self.passengers = []
+        self.direction = 0  # 0 - right; 1 - left
+        self.waiting = False
 
 
 def generate_man(station):
