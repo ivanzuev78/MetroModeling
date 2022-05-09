@@ -1,20 +1,21 @@
+import datetime
+import os
 import time
-from asyncio import get_event_loop, gather, sleep
+from asyncio import get_event_loop, gather
 from typing import List
+import signal
 
-from about_async import my_func_async, my_func_coroutine
 from check_funcs import check_station, check_train
-from stations import create_man, Passenger, Station, STATIONS_NAME, Tunnel, generate_get_next_stations_func, Train
-
-PASSENGER_START_GENERATION_TIME = 18 * 60
-TIME_BETWEEN_STATIONS_MINUTES = [6, 3, 2, 7]
-
-NUMB_OF_TRAINS = 10
-SPEED = 100
+from constats import SPEED, PASSENGER_START_GENERATION_TIME, NUMB_OF_TRAINS, TIME_BETWEEN_STATIONS_MINUTES, \
+    STAT_GET_INTERVAL, STATIONS_NAME
+from statist import Statistics, show_statistics
+from stations import create_man, Passenger, Station, Tunnel, generate_get_next_stations_func, Train
 
 
 async def modelling(numb_of_trains: int, stations_names: List[str], time_between_stations: List[int],
-                    interval_between_trains: int):
+                    interval_between_trains: int, statistics_watcher: Statistics):
+    time_for_step = 1 / SPEED
+    start_time = datetime.time(12)
     # some init
     if len(stations_names) != len(time_between_stations) + 1:
         raise ValueError('Не согласуются данные моделирования')
@@ -31,25 +32,26 @@ async def modelling(numb_of_trains: int, stations_names: List[str], time_between
 
     tunnels = tunnels_right + tunnels_left
 
-    for station_index, tunnel in enumerate(tunnels_right):
+    for station_index, tunnel_right in enumerate(tunnels_right):
         station_left = stations[station_index]
         station_right = stations[station_index + 1]
 
-        station_left.right_tunnel = tunnel
-        tunnel.end_station = station_right
+        station_left.right_tunnel = tunnel_right
+        tunnel_right.end_station = station_right
 
-    for station_index, tunnel in enumerate(tunnels_left):
+    for station_index, tunnel_right in enumerate(tunnels_left):
         station_left = stations[station_index]
         station_right = stations[station_index + 1]
 
-        station_right.left_tunnel = tunnel
-        tunnel.end_station = station_left
+        station_right.left_tunnel = tunnel_right
+        tunnel_right.end_station = station_left
 
-    trains = [Train(get_next_stations) for _ in range(numb_of_trains)]
+    trains = [Train(get_next_stations, statistics_watcher) for _ in range(numb_of_trains)]
     trains_to_start = list(trains)
 
     modelling_time = 0
-    statistics = []
+    statistics_watcher.stations = stations
+    statistics_watcher.trains = trains
     # save_statistics = my_func_coroutine()
     # save_statistics.send(None)
     while True:
@@ -57,6 +59,7 @@ async def modelling(numb_of_trains: int, stations_names: List[str], time_between
 
         if modelling_time % interval_between_trains == 0 and trains_to_start:
             train = trains_to_start.pop(0)
+            train.next_station = stations[0]
             stations[0].get_train(train)
 
         modelling_time += 1
@@ -68,14 +71,14 @@ async def modelling(numb_of_trains: int, stations_names: List[str], time_between
 
             await gather(*add_people_tasks)
 
-        # for station in stations:
-        #     debug_list = list(filter(lambda man: man.station_to_go == station.name, station.people))
-        #     if debug_list:
-        #         print('!!!')
+        for station in stations:
+            debug_list = list(filter(lambda man: man.station_to_go == station.name, station.people))
+            if debug_list:
+                print('!!!')
 
         move_trains_in_tunnels_tasks = []
-        for tunnel in tunnels:
-            move_trains_in_tunnels_tasks.append(tunnel.move_trains())
+        for tunnel_right in tunnels:
+            move_trains_in_tunnels_tasks.append(tunnel_right.move_trains())
         await gather(*move_trains_in_tunnels_tasks)
 
         move_trains_on_stations_tasks = []
@@ -94,39 +97,66 @@ async def modelling(numb_of_trains: int, stations_names: List[str], time_between
         duration_of_step_modelling = time.time() - t
         # print(modelling_time, duration_of_step_modelling)
 
-        # await sleep((1 - duration_of_step_modelling) / SPEED)
+        # if time_for_step > duration_of_step_modelling and modelling_time % 2 == 0:
+        #     time.sleep(time_for_step - duration_of_step_modelling)
 
-        # print()
-        # task_list = []
-        # for station in stations:
-        #     if station.is_train_to_go:
-        #         task_list.append(station.start_train())
-        #
-        #
-        if modelling_time % 60 == 0:
-            print('=================')
-            print(modelling_time)
-            print(*[len(station.people) for station in stations])
-            print('🚋')
-            c = 0
-            stat_1 = []
-            for station in stations:
-                stat_1.append(len(station.people))
-            for i in range(len(stat_1)):
-                c += stat_1[i]
-            statistics.append(c // len(STATIONS_NAME))
-            print(statistics[17:])
-            # data = get_data(stations, trains)
-            # statistics.append(data)
-            # static = save_statistics.send(data)
+
+        if modelling_time % STAT_GET_INTERVAL == 0:
+            os.system('cls||clear')
+
+
+            for tunnel_right, tunnel_left, station in zip(tunnels_right, tunnels_left, stations):
+
+                # Печать станций
+                train_at_station = ''
+                if station.train_at_station:
+                    train_at_station = f' [{len(station.train_at_station.passengers)}] '
+                print(station, len(station.people), train_at_station)
+
+                # Печать путей
+                lines_right = tunnel_right.get_print_lines()
+                lines_left = tunnel_left.get_print_lines(True)
+                for line_right, line_left in zip(lines_right, lines_left):
+                    print(line_right + line_left)
+
+            # Печать последней станции
+            station = stations[-1]
+            train_at_station = ''
+            if station.train_at_station:
+                train_at_station = f' [{len(station.train_at_station.passengers)}] '
+            print(station, len(station.people), train_at_station)
+
+            # Сбор статистики
+            statistics_tasks = []
+            for statistics_object in stations + trains:
+                statistics_tasks.append(statistics_object.remember_stats())
+            await gather(*statistics_tasks)
+            print(statistics_watcher.current_step)
+            statistics_watcher.current_step += 1
+            # time.sleep(0.1)
+
+
+def termination_handler_creator(statistics):
+    def termination_handler(*args, **kwargs):
+        os.system('cls||clear')
+        show_statistics(statistics)
+        exit()
+
+    return termination_handler
 
 
 def main():
+    statistics_watcher = Statistics()
+    termination_handler = termination_handler_creator(statistics_watcher)
+    signal.signal(signal.SIGINT, termination_handler)
     loop = get_event_loop()
     interval_between_trains = int(38 * 60 / NUMB_OF_TRAINS)
     time_between_stations = [t * 60 for t in TIME_BETWEEN_STATIONS_MINUTES]
-    loop.run_until_complete(modelling(NUMB_OF_TRAINS, STATIONS_NAME, time_between_stations, interval_between_trains))
-
+    try:
+        loop.run_until_complete(
+            modelling(NUMB_OF_TRAINS, STATIONS_NAME, time_between_stations, interval_between_trains, statistics_watcher))
+    except:
+        termination_handler()
 
 if __name__ == '__main__':
     main()

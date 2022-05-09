@@ -1,13 +1,11 @@
 import random
 from typing import List, Callable
 
-STATIONS_NAME = ['Rokossovskaya', 'Sobornaya', 'Crystal', 'Zarechnaya', 'Pushkin library']
-TIME_AT_STATION = 15
-MAX_PEOPLE_AT_STATION = 1000
-MAX_PEOPLE_IN_TRAIN = 400
+from constats import TIME_AT_STATION, MAX_PEOPLE_IN_TRAIN, STAT_GET_INTERVAL
+from statist import Statistics
+
 
 def generate_get_next_stations_func(stations):
-
     def get_next_stations(current_station: str, direction: int):
         current_station_index = stations.index(current_station)
         return stations[current_station_index + direction::direction]
@@ -27,12 +25,15 @@ class Station:
         self.train_at_station = None
         self.right_tunnel = None
         self.left_tunnel = None
+        self.statistics = []
+
+    async def remember_stats(self):
+        self.statistics.append(len(self.people))
 
     def init_other_stations(self, stations):
         self.other_stations = [s for s in stations if s is not self]
 
     def send_train(self):
-
 
         # Обработка крайнего правого туннеля
         if self.right_tunnel is None:
@@ -61,6 +62,8 @@ class Station:
         train.drop_passengers_off(self)
 
     async def move_train(self):
+        for passenger in self.people:
+            passenger.travel_time += 1
         if self.train_at_station:
             self.train_at_station.current_time += 1
 
@@ -72,22 +75,44 @@ class Station:
 
 
 class Train:
-    def __init__(self, get_next_stations: Callable):
+    def __init__(self, get_next_stations: Callable, statistics_watcher: Statistics):
         self.passengers = []
         self.direction = 1  # 1 - right; -1 - left
-        self.current_time = 0
-        self.get_next_stations = get_next_stations
+        self.__current_time = 0
+        self.__get_next_stations = get_next_stations
+        self.__statistics_watcher = statistics_watcher
+        self.next_station = None
+        self.last_station = None
+        self.statistics = []
+
+    @property
+    def current_time(self):
+        return self.__current_time
+
+    @current_time.setter
+    def current_time(self, value):
+        if not isinstance(value, int):
+            raise TypeError('Неверный тип current_time')
+        if value != 0:
+            for passenger in self.passengers:
+                passenger.travel_time += value - self.__current_time
+
+        self.__current_time = value
+
+    async def remember_stats(self):
+        self.statistics.append(len(self.passengers))
 
     def drop_passengers_off(self, station: Station):
         passengers_to_drop = list(
             filter(lambda passenger: station.name == passenger.station_to_go, self.passengers))
 
         for passenger in passengers_to_drop:
+            self.__statistics_watcher.add_travel_time(passenger.travel_time)
             self.passengers.remove(passenger)
             del passenger
 
     def get_passengers(self, station: Station):
-        next_stations = self.get_next_stations(station.name, self.direction)
+        next_stations = self.__get_next_stations(station.name, self.direction)
         passengers_to_get = []
 
         for passenger in station.people:
@@ -110,6 +135,8 @@ class Tunnel:
         self.trains = []
 
     def get_train(self, train: Train):
+        train.last_station = train.next_station
+        train.next_station = self.end_station
         train.current_time = 0
         self.trains.append(train)
 
@@ -127,12 +154,25 @@ class Tunnel:
         if train_to_send:
             self.send_train(train_to_send)
 
+    def get_print_lines(self, reverse: bool = False):
+        numb_of_segments = self.time_len // STAT_GET_INTERVAL
+        lines = ['||' for _ in range(numb_of_segments)]
+        for train in self.trains:
+            segment = train.current_time // STAT_GET_INTERVAL
+            lines[segment] += f' [{len(train.passengers)}] '
+
+        for index, line in enumerate(lines):
+            lines[index] += ' ' * (12 - len(line))
+
+        return list(reversed(lines)) if reverse else lines
+
 
 class Passenger:
     all_stations = []
 
     def __init__(self, station: Station):
         self.station_to_go = random.choice([s.name for s in self.all_stations if s is not station])
+        self.travel_time = 0
         station.people.append(self)
 
 
@@ -160,4 +200,3 @@ if __name__ == '__main__':
     #
     station = Station('my station debug')
     print(str(station))
-

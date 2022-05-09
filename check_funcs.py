@@ -1,10 +1,10 @@
-from typing import List
-
-from stations import Station, Train, MAX_PEOPLE_AT_STATION, MAX_PEOPLE_IN_TRAIN
+from constats import MAX_PEOPLE_AT_STATION, MAX_PEOPLE_IN_TRAIN
+from stations import Station, Train
 
 
 class TooMuchPeopleAtTheStationError(Exception):
     pass
+
 
 class TooMuchPeopleInTheTrainError(Exception):
     pass
