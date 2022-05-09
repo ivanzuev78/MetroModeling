@@ -114,7 +114,6 @@ async def modelling(numb_of_trains: int, stations_names: List[str], time_between
                 stat_1.append(len(station.people))
             for i in range(len(stat_1)):
                 c += stat_1[i]
-            stat_1 = []
             statistics.append(c // len(STATIONS_NAME))
             print(statistics[17:])
             # data = get_data(stations, trains)
