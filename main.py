@@ -49,7 +49,7 @@ async def modelling(numb_of_trains: int, stations_names: List[str], time_between
     trains_to_start = list(trains)
 
     modelling_time = 0
-    # statistics = []
+    statistics = []
     # save_statistics = my_func_coroutine()
     # save_statistics.send(None)
     while True:
@@ -108,6 +108,15 @@ async def modelling(numb_of_trains: int, stations_names: List[str], time_between
             print(modelling_time)
             print(*[len(station.people) for station in stations])
             print('🚋')
+            c = 0
+            stat_1 = []
+            for station in stations:
+                stat_1.append(len(station.people))
+            for i in range(len(stat_1)):
+                c += stat_1[i]
+            stat_1 = []
+            statistics.append(c // len(STATIONS_NAME))
+            print(statistics[17:])
             # data = get_data(stations, trains)
             # statistics.append(data)
             # static = save_statistics.send(data)
