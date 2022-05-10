@@ -2,11 +2,15 @@ from constats import MAX_PEOPLE_AT_STATION, MAX_PEOPLE_IN_TRAIN
 from stations import Station, Train
 
 
-class TooMuchPeopleAtTheStationError(Exception):
+class ModellingError(Exception):
     pass
 
 
-class TooMuchPeopleInTheTrainError(Exception):
+class TooMuchPeopleAtTheStationError(ModellingError):
+    pass
+
+
+class TooMuchPeopleInTheTrainError(ModellingError):
     pass
 
 

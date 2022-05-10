@@ -1,7 +1,7 @@
 import random
 from typing import List, Callable
 
-from constats import TIME_AT_STATION, MAX_PEOPLE_IN_TRAIN, STAT_GET_INTERVAL
+from constats import TIME_AT_STATION_SECONDS, MAX_PEOPLE_IN_TRAIN, STAT_GET_INTERVAL
 from statist import Statistics
 
 
@@ -67,7 +67,7 @@ class Station:
         if self.train_at_station:
             self.train_at_station.current_time += 1
 
-            if self.train_at_station.current_time == TIME_AT_STATION:
+            if self.train_at_station.current_time == TIME_AT_STATION_SECONDS:
                 self.send_train()
 
     def __str__(self):
@@ -75,6 +75,9 @@ class Station:
 
 
 class Train:
+
+    numb_of_trains: int = 0
+
     def __init__(self, get_next_stations: Callable, statistics_watcher: Statistics):
         self.passengers = []
         self.direction = 1  # 1 - right; -1 - left
@@ -84,6 +87,8 @@ class Train:
         self.next_station = None
         self.last_station = None
         self.statistics = []
+        self.train_number = Train.numb_of_trains
+        Train.numb_of_trains += 1
 
     @property
     def current_time(self):

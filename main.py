@@ -1,15 +1,18 @@
 import datetime
 import os
-import time
-from asyncio import get_event_loop, gather
-from typing import List
 import signal
+import time
+from asyncio import gather, get_event_loop
+from typing import List
 
-from check_funcs import check_station, check_train
-from constats import SPEED, PASSENGER_START_GENERATION_TIME, NUMB_OF_TRAINS, TIME_BETWEEN_STATIONS_MINUTES, \
-    STAT_GET_INTERVAL, STATIONS_NAME
-from statist import Statistics, show_statistics
-from stations import create_man, Passenger, Station, Tunnel, generate_get_next_stations_func, Train
+from check_funcs import ModellingError, check_station, check_train
+from constats import (NUMB_OF_TRAINS, PASSENGER_START_GENERATION_TIME_SECONDS,
+                      SPEED, STAT_GET_INTERVAL, STATION_NAMES,
+                      TIME_BETWEEN_STATIONS_SECONDS,
+                      TRAIN_START_INTERVAL_SECONDS)
+from stations import (Passenger, Station, Train, Tunnel, create_man,
+                      generate_get_next_stations_func)
+from statist import Statistics, create_graphs
 
 
 async def modelling(numb_of_trains: int, stations_names: List[str], time_between_stations: List[int],
@@ -52,8 +55,7 @@ async def modelling(numb_of_trains: int, stations_names: List[str], time_between
     modelling_time = 0
     statistics_watcher.stations = stations
     statistics_watcher.trains = trains
-    # save_statistics = my_func_coroutine()
-    # save_statistics.send(None)
+
     while True:
         t = time.time()
 
@@ -64,7 +66,7 @@ async def modelling(numb_of_trains: int, stations_names: List[str], time_between
 
         modelling_time += 1
 
-        if modelling_time >= PASSENGER_START_GENERATION_TIME:
+        if modelling_time >= PASSENGER_START_GENERATION_TIME_SECONDS:
             add_people_tasks = []
             for station in stations:
                 add_people_tasks.append(create_man(station))
@@ -100,10 +102,8 @@ async def modelling(numb_of_trains: int, stations_names: List[str], time_between
         # if time_for_step > duration_of_step_modelling and modelling_time % 2 == 0:
         #     time.sleep(time_for_step - duration_of_step_modelling)
 
-
         if modelling_time % STAT_GET_INTERVAL == 0:
             os.system('cls||clear')
-
 
             for tunnel_right, tunnel_left, station in zip(tunnels_right, tunnels_left, stations):
 
@@ -126,37 +126,43 @@ async def modelling(numb_of_trains: int, stations_names: List[str], time_between
                 train_at_station = f' [{len(station.train_at_station.passengers)}] '
             print(station, len(station.people), train_at_station)
 
+            print(statistics_watcher.current_step)
+
+        if modelling_time % 10 == 0:
             # Сбор статистики
             statistics_tasks = []
             for statistics_object in stations + trains:
                 statistics_tasks.append(statistics_object.remember_stats())
             await gather(*statistics_tasks)
-            print(statistics_watcher.current_step)
+
             statistics_watcher.current_step += 1
-            # time.sleep(0.1)
+                # time.sleep(0.1)
 
 
 def termination_handler_creator(statistics):
     def termination_handler(*args, **kwargs):
         os.system('cls||clear')
-        show_statistics(statistics)
+        create_graphs(statistics)
         exit()
 
     return termination_handler
 
 
 def main():
-    statistics_watcher = Statistics()
+    statistics_watcher = Statistics()  # Объект для сбора статистики
+    # Создаём termination_handler с сохраненным в нём statistics_watcher
     termination_handler = termination_handler_creator(statistics_watcher)
     signal.signal(signal.SIGINT, termination_handler)
     loop = get_event_loop()
-    interval_between_trains = int(38 * 60 / NUMB_OF_TRAINS)
-    time_between_stations = [t * 60 for t in TIME_BETWEEN_STATIONS_MINUTES]
+
     try:
         loop.run_until_complete(
-            modelling(NUMB_OF_TRAINS, STATIONS_NAME, time_between_stations, interval_between_trains, statistics_watcher))
-    except:
+            modelling(NUMB_OF_TRAINS, STATION_NAMES, TIME_BETWEEN_STATIONS_SECONDS, TRAIN_START_INTERVAL_SECONDS,
+                      statistics_watcher))
+    except ModellingError as e:
+        input(e.args[0] + '\nНажмите Enter для построения результатов моделирования')
         termination_handler()
+
 
 if __name__ == '__main__':
     main()
